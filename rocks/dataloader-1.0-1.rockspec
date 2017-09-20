@@ -1,5 +1,5 @@
 package = "loader"
-version = "scm-1"
+version = "1.0-1"
 
 source = {
    url = "git://github.com/nashory/dataloader.torch",

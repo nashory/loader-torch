@@ -16,16 +16,16 @@ local unpack = unpack and unpack or table.unpack
 -- 'threads', 'batchSize', 'manualSeed'
 
 function data.new(_params)
-    _params = _params or {}
+    local _params = _params or {}
     local self = {}
     for k,v in pairs(data) do
         self[k] = v
     end
 
     -- get params or set default value.
-    __TRAIN_DATA_ROOT__=_params.trainPath
     local nthreads = _params.nthreads or 1                  -- default thread num is 1.
-    local manualSeed = _params.manualSeed or os.time()      -- random seed. 
+    local manualSeed = _params.manualSeed or os.time()      -- random seed.
+    self.batchSize = _params.batchSize
 
 
     --local donkey_file = 'donkey.lua'
@@ -40,10 +40,8 @@ function data.new(_params)
                                     print(string.format('Starting donkey with id: %d, seed: %d',
                                           thread_id, seed))
                                     assert(opt, 'option parameters not given')
-                                    --paths.dofile('dataloader.lua')
                                     require('dataloader')
                                     loader=DataLoader(opt)
-                                    --path.dofile(donkey_file)            -- init donkey.
                                 end
                                )
     end
@@ -61,9 +59,14 @@ function data.new(_params)
     return self
 end
 
-function data._getFromThreads()
+function data._getFromTrainThreads()
     assert(opt.batchSize, 'batchSize not found.')
-    return loader:sample(opt.batchSize)
+    return loader:getSample('train')
+end
+
+function data._getFromTestThreads()
+    assert(opt.batchSize, 'batchSize not found.')
+    return loader:getSample('test')
 end
 
 function data._pushResult(...)
@@ -72,19 +75,51 @@ function data._pushResult(...)
     table.insert(result, res)
 end
 
-function data:getBatch()
+function data.table2Tensor(table)
+    assert( table[1]:size(1)==3 or table[1]:size(1)==1, 
+            'the tensor channel should be 1(gray) or 3(rgb).')
+    assert( table[1]~=nil, 'no elements were found in batch table.')
+    local len = #table
+    local res = torch.Tensor(len, table[1]:size(1), table[1]:size(2), table[1]:size(3)):zero()
+    for i = 1, len do res[{{i},{},{},{}}]:copy(table[i]) end
+    return res
+end
+
+function data.getBatch(self, target)
+    assert(target=='train' or target=='test')
+    assert(self.batchSize, 'batchSize not found.')
+    local dataTable = {}
     ---queue another job
-    self.threads:addjob(self._getFromThreads, self._pushResult)
-    self.threads:dojob()
-    local res = result[1]
-    result[1] = nil
-    if torch.type(res) == 'table' then return unpack(res) end
+    if target == 'train' then
+        for i = 1, self.batchSize do
+            self.threads:addjob(self._getFromTrainThreads,
+                                function(c) table.insert(dataTable, c) end)
+        end
+    elseif target == 'test' then
+        for i = 1, opt.batchSize do
+            self.threads:addjob(self._getFromTestThreads, self._pushResult)
+            self.threads:dojob()
+        end
+    end
+    self.threads:synchronize() 
+    collectgarbage()
+    local res = self.table2Tensor(dataTable)
     return res
 end
 
 
-function data:getSample()
-    print('get sample image for test.')
+function data.getSample(self, target)
+    assert(target=='train' or target=='test')
+    assert(self.batchSize, 'batchSize not found.')
+    local dataTable = {}
+    if target == 'train' then
+        self.threads:addjob(self._getFromTrainThreads, function(c) table.insert(dataTable, c) end)
+        self.threads:dojob()
+    elseif target == 'test' then
+        self.threads:addjob(self._getFromTestThreads, function(c) table.insert(dataTable, c) end)
+        self.threads:dojob()
+    end
+    return unpack(dataTable)
 end
 
 

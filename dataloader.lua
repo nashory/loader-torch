@@ -30,6 +30,10 @@ local initcheck = argcheck{
     {   name='batchSize',
         type='number',
         help='batchSize' },
+   
+    {   name='nthreads',
+        type='number',
+        help='nthreads' },
 
     {   name='trainPath',
         type='string',
@@ -39,8 +43,13 @@ local initcheck = argcheck{
         type='number',
         help='split ratio (train/test)',
         default=1.0    },
+   
+    {   name='channel',
+        type='number',
+        help='image channels (rgb:3 | gray:1)',
+        default=3    },
 
-    
+
     {   name='verbose',
         type='boolean',
         help='verbose',
@@ -63,13 +72,7 @@ function dataloader:__init(...)
     -- argcheck
     local args = initcheck(...)
     for k,v in pairs(args) do self[k] = v end          -- push args into self.
-
-    --self.verbose = true
-    --self.trainPath = trainPath
     
-
-
-
     if not paths.dirp(self.trainPath) then
         error(string.format('Did not find directory: %s', self.trainPath))
     end
@@ -85,11 +88,12 @@ function dataloader:__init(...)
     if paths.filep(trainCache) then 
         print('Loading train metadata from cache')
         info = torch.load(trainCache)
-        --self.xx = info.sdf                -- restore variables.
+        for k,v in pairs(info) do self[k] = v end       -- restore variable.
     else
         print('Creating train metadata')
         self:create_cache()
-    end 
+        torch.save(trainCache, self)
+    end
 end
 
 
@@ -115,6 +119,92 @@ function dataloader:size(target, class)
         elseif type(class)=='number' then return list[class]:size(1) end
     end
 end
+
+function dataloader:load_im(path)
+    return image.load(path, nc, 'float')
+end
+
+-- all image processings for single image are defined here. (train)
+function dataloader:trainHook(path)
+    collectgarbage()
+    local im = self:load_im(path)
+    im = image.crop(im, 0,0,96,96)
+    -- resize image (always keeping ratio)
+    --if opt.padding then input = prepro.resize(input, opt.loadSize, 'with_padding')
+    --else input = prepro.resize(input, opt.loadSize, 'without_padding') end
+
+
+    -- crop and hflip
+    --local out = prepro.crop(input, opt.sampleSize, opt.crop)
+    --if torch.uniform() > 0.5 then out = image.hflip(out) end
+    
+    -- adjust image value range.
+    --if opt.pixrange == '[0,1]' then out = out
+    --elseif opt.pixrange == '[-1,1]' then out:mul(2):add(-1) end
+    return im
+end
+
+
+function dataloader:testHook(path)
+    collectgarbage()
+end
+
+
+function dataloader:getByClass(target, class)
+    assert(target=='train' or target=='test')
+    local index, imgpath
+    if target == 'train' then
+        assert(self.numTrainSamples>0,
+                    'no train samples found! recommend to check "split" option.')
+        index = math.ceil(torch.uniform()*self.classListTrain[class]:nElement())
+        imgpath = ffi.string(torch.data(self.imagePath[self.classListTrain[class][index]]))
+        return self:trainHook(imgpath)
+    elseif target == 'test' then
+        assert(self.numTestSamples>0,
+                    'no test samples found! recommend to check "split" option.')
+        index = math.ceil(torch.uniform()*self.classListTest[class]:nElement())
+        imgpath = ffi.string(torch.data(self.imagePath[self.classListTest[class][index]]))
+        return self:testHook(imgpath)
+    end
+end
+
+function dataloader:getSample(target)
+    assert(target == 'train' or target == 'test')
+    local c = torch.random(1, #self.classes)
+    return self:getByClass(target, c)
+end
+
+
+function dataloader:sample(target, batchSize)
+    print('gogogo')
+    assert(batchSize, 'batchSize is not found.')
+    local dataTable = {}
+    local scalarTable = {}
+    for i=1,batchSize do
+        local class = torch.random(1,#self.classes)
+        local out = self:getByClass(target, class)
+        table.insert(dataTable, out)
+        table.insert(scalarTable, class)
+    end
+    local data, scalarLabels = self:table2Output(self, dataTable, scalarTable)
+    return data, scalarLabels
+end
+
+-- dataTable : images of batch, scalarTable: labels of batch.
+function dataloader:table2Output(self, dataTable, scalarTable)
+    local data, scalarLabels, labels
+    local batchSize = #scalarTable
+    assert(dataTable[1]:dim()==3, 'error. Size of input tensor must be 3.')
+    data = torch.Tensor(batchSize, self.channel, self.sampleSize, self.sampleSize)
+    scalarLabels = torch.LongTensor(batchSize):fill(-1)
+    for i=1, #dataTable do
+        data[i]:copy(dataTable[i])
+        scalarLabels[i] = scalarTable[i]
+    end
+    return data, scalarLabels
+end
+
+
 
 
 function dataloader:create_cache()
@@ -189,6 +279,7 @@ function dataloader:create_cache()
     os.execute('bash ' .. tmpfile)
     os.execute('rm -f ' .. tmpfile)
     
+    collectgarbage()
     print('now combine all the files to a single large file')
     local tmpfile = os.tmpname()
     local tmphandle = assert(io.open(tmpfile, 'w'))
@@ -246,6 +337,7 @@ function dataloader:create_cache()
     end
 
     -- clean up temp files.
+    collectgarbage()
     print('Cleaning up temporary files')
     local tmpfilelistall = ''
     for i=1,#classFindFiles do
@@ -259,53 +351,50 @@ function dataloader:create_cache()
     os.execute('rm -f "' .. combinedFindList .. '"')
 
     -- split train/test set.
-    if self.split >= 1.0 then
-        self.split = 1.0
-        self.testIndicesSize = 0
-    else
-        print(string.format('Splitting training and tet sets to a ratio of %f(train) / %f(test)',
-                self.split, 1.0-self.split))
-        self.classListTrain = {}
-        self.classListTest = {}
-        self.classListSample = self.classListTrain
-        local totalTestSamples = 0
-        -- split the classList into classListTrain and classListTest
-        for i=1,#self.classes do
-            local list = self.classList[i]
-            local count = self.classList[i]:size(1)
-            local splitidx = math.floor(count*self.split + 0.5)     -- +round
-            local perm = torch.randperm(count)                      -- mix (1 ~ count) randomly.
-            self.classListTrain[i] = torch.LongTensor(splitidx)
-            for j = 1, splitidx do                  -- (1 ~ splitidx) : trainset
-                self.classListTrain[i][j] = list[perm[j]]
-            end
-            if splitidx == count then               -- all smaples were allocated to trainset
-                self.classListTest[i] = torch.LongTensor()
-            else 
-                self.classListTest[i] = torch.LongTensor(count-splitidx)
-                totalTestSamples = totalTestSamples + self.classListTest[i]:size(1)
-                local idx = 1
-                for j = splitidx+1, count do        -- (splitidx+1 ~ count) : testset
-                    self.classListTest[i][idx] = list[perm[j]]
-                    idx = idx + 1
-                end
+    local totalTestSamples = 0
+    if self.split >= 1.0 then self.split=1.0 end
+    
+    print(string.format('Splitting training and tet sets to a ratio of %f(train) / %f(test)',
+            self.split, 1.0-self.split))
+    self.classListTrain = {}
+    self.classListTest = {}
+    self.classListSample = self.classListTrain
+    -- split the classList into classListTrain and classListTest
+    for i=1,#self.classes do
+        local list = self.classList[i]
+        local count = self.classList[i]:size(1)
+        local splitidx = math.floor(count*self.split + 0.5)     -- +round
+        local perm = torch.randperm(count)                      -- mix (1 ~ count) randomly.
+        self.classListTrain[i] = torch.LongTensor(splitidx)
+        for j = 1, splitidx do                  -- (1 ~ splitidx) : trainset
+            self.classListTrain[i][j] = list[perm[j]]
+        end
+        if splitidx == count then               -- all smaples were allocated to trainset
+            self.classListTest[i] = torch.LongTensor()
+        else 
+            self.classListTest[i] = torch.LongTensor(count-splitidx)
+            totalTestSamples = totalTestSamples + self.classListTest[i]:size(1)
+            local idx = 1
+            for j = splitidx+1, count do        -- (splitidx+1 ~ count) : testset
+                self.classListTest[i][idx] = list[perm[j]]
+                idx = idx + 1
             end
         end
-        -- Now combine classListTest into a single tensor
-        self.testIndices = torch.LongTensor(totalTestSamples)
-        
-        self.numTestSamples = totalTestSamples
-        self.numTrainSamples = self.numSamples - self.numTestSamples
-        local tdata = self.testIndices:data()
-        local tidx = 0
-        for i=1,#self.classes do
-            local list = self.classListTest[i]
-            if list:dim() ~= 0 then
-                local ldata = list:data()
-                for j=0, list:size(1)-1 do
-                    tdata[tidx] = ldata[j]
-                    tidx = tidx + 1
-                end
+    end
+    -- Now combine classListTest into a single tensor
+    collectgarbage()
+    self.testIndices = torch.LongTensor(totalTestSamples)
+    self.numTestSamples = totalTestSamples
+    self.numTrainSamples = self.numSamples - self.numTestSamples
+    local tdata = self.testIndices:data()
+    local tidx = 0
+    for i=1,#self.classes do
+        local list = self.classListTest[i]
+        if list:dim() ~= 0 then
+            local ldata = list:data()
+            for j=0, list:size(1)-1 do
+                tdata[tidx] = ldata[j]
+                tidx = tidx + 1
             end
         end
     end
@@ -331,29 +420,6 @@ end
 
 
 
-
-function dataloader:load_im(path)
-    return image.load(path, nc, 'float')
-end
-
-
-
-function dataloader:trainHook(path)
-    local im = self:load_im(path)
-    -- resize image (always keeping ratio)
-    --if opt.padding then input = prepro.resize(input, opt.loadSize, 'with_padding')
-    --else input = prepro.resize(input, opt.loadSize, 'without_padding') end
-
-
-    -- crop and hflip
-    --local out = prepro.crop(input, opt.sampleSize, opt.crop)
-    --if torch.uniform() > 0.5 then out = image.hflip(out) end
-    
-    -- adjust image value range.
-    --if opt.pixrange == '[0,1]' then out = out
-    --elseif opt.pixrange == '[-1,1]' then out:mul(2):add(-1) end
-    return im
-end
 
 
 
