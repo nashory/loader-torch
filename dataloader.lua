@@ -33,28 +33,58 @@ local initcheck = argcheck{
    
     {   name='nthreads',
         type='number',
-        help='nthreads' },
+        help='number of threads' },
 
     {   name='trainPath',
         type='string',
-        help='trainPath' },
-    
+        help='path to train data' },
+
     {   name='split',
         type='number',
         help='split ratio (train/test)',
         default=1.0    },
-   
+
     {   name='channel',
         type='number',
         help='image channels (rgb:3 | gray:1)',
         default=3    },
 
-
     {   name='verbose',
         type='boolean',
         help='verbose',
         default=true    },
+    
+    {   name='hflip',
+        type='boolean',
+        --help='horizontal flip with 50% prob.',
+        default=true    },
 
+    {   name='crop',
+        type='string',
+        --help='random | center | none',
+        default='random'  },
+
+    {   name='padding',
+        type='boolean',
+        --help='add padding to adjust image size',
+        default=false  },
+    
+    {   name='keep_ratio',
+        type='boolean',
+        --help='true: resize keeping ratio, false: resize without keeping ratio',
+        default=true  },
+    
+    --[[
+    {   name='norm',
+        type='boolean',
+        --help='true: normalize image (mean=0, std=0.1), false: no normalization',
+        default=false  },
+
+    {   name='pixel_range',
+        type='string',
+        help='[-1,1] | [0,1]',
+        default='[-1,1]'  },
+    ]]--
 }
 
 
@@ -126,21 +156,29 @@ end
 
 -- all image processings for single image are defined here. (train)
 function dataloader:trainHook(path)
-    collectgarbage()
-    local im = self:load_im(path)
+    local src = self:load_im(path)
+    local im = src:clone()
     im = image.crop(im, 0,0,96,96)
+
+    -- add padding if want.
+    if opt.padding then im = prepro.add_padding(im, opt.loadSize) end
+
     -- resize image (always keeping ratio)
-    --if opt.padding then input = prepro.resize(input, opt.loadSize, 'with_padding')
-    --else input = prepro.resize(input, opt.loadSize, 'without_padding') end
+    im = prepro.im_resize(im, opt.loadSize, opt.keep_ratio)
 
+    -- crop image (random | center).
+    im = prepro.im_crop(im, opt.sampleSize, opt.crop)
 
-    -- crop and hflip
-    --local out = prepro.crop(input, opt.sampleSize, opt.crop)
-    --if torch.uniform() > 0.5 then out = image.hflip(out) end
-    
-    -- adjust image value range.
-    --if opt.pixrange == '[0,1]' then out = out
-    --elseif opt.pixrange == '[-1,1]' then out:mul(2):add(-1) end
+    -- rotation
+    -- will be implemented later.
+
+    -- hflip
+    if opt.hflip then im = prepro.im_hfilp(im) end
+
+    -- pixel range
+    im = prepro.adjust_range(im, opt.pixel_range)
+
+    collectgarbage()
     return im
 end
 
@@ -399,29 +437,6 @@ function dataloader:create_cache()
         end
     end
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 return dataloader
