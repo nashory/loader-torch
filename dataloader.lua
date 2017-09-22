@@ -14,78 +14,46 @@ local argcheck = require 'argcheck'
 local prepro = require 'preprocessor'
 
 
+
 -- input arguments check. if not exist, set as default value.
-local initcheck = argcheck{
-    pack = true,
-    help = [[ argument check if they exist ]],
-    
-    {   name='loadSize',
-        type='number',
-        help='loadSize' },
+function argchecker(param)
 
-    {   name='sampleSize',
-        type='number',
-        help='sampleSize' },
-    
-    {   name='batchSize',
-        type='number',
-        help='batchSize' },
-   
-    {   name='nthreads',
-        type='number',
-        help='number of threads' },
+    -- set default value.
+    param.loadSize = param.loadSize or 80
+    param.sampleSize = param.sampleSize or 64
+    param.batchSize = param.batchSize or 10
+    param.nthreads = param.nthreads or 8
+    param.trainPath = param.trainPath or nil
+    param.split = param.split or 1.0
+    param.channel = param.channel or 3
+    param.verbose = param.verbose or true
+    param.hflip = param.hflip or false
+    param.crop = param.crop or 'random'
+    param.padding = param.padding or false
+    param.keep_ratio = param.keep_ratio or true
+    param.pixel_range = param.pixel_range or '[0,1]'
 
-    {   name='trainPath',
-        type='string',
-        help='path to train data' },
+    -- arg type check
+    assert(type(param)=='table')
+    assert(type(param.loadSize)=='number')
+    assert(type(param.sampleSize)=='number')
+    assert(type(param.batchSize)=='number')
+    assert(type(param.nthreads)=='number')
+    assert(type(param.trainPath)=='string')
+    assert(type(param.split)=='number')
+    assert(type(param.channel)=='number')
+    assert(param.channel==1 or param.channel==3)
+    assert(type(param.verbose)=='boolean')
+    assert(type(param.hflip)=='boolean')
+    assert(type(param.padding)=='boolean')
+    assert(type(param.keep_ratio)=='boolean')
+    assert(type(param.crop)=='string')
+    assert(param.crop=='center' or param.crop=='random')
+    assert(type(param.pixel_range)=='string')
+    assert(param.pixel_range=='[0,1]' or param.pixel_range=='[-1,1]')
 
-    {   name='split',
-        type='number',
-        help='split ratio (train/test)',
-        default=1.0    },
-
-    {   name='channel',
-        type='number',
-        help='image channels (rgb:3 | gray:1)',
-        default=3    },
-
-    {   name='verbose',
-        type='boolean',
-        help='verbose',
-        default=true    },
-    
-    {   name='hflip',
-        type='boolean',
-        --help='horizontal flip with 50% prob.',
-        default=true    },
-
-    {   name='crop',
-        type='string',
-        --help='random | center | none',
-        default='random'  },
-
-    {   name='padding',
-        type='boolean',
-        --help='add padding to adjust image size',
-        default=false  },
-    
-    {   name='keep_ratio',
-        type='boolean',
-        --help='true: resize keeping ratio, false: resize without keeping ratio',
-        default=true  },
-    
-    --[[
-    {   name='norm',
-        type='boolean',
-        --help='true: normalize image (mean=0, std=0.1), false: no normalization',
-        default=false  },
-
-    {   name='pixel_range',
-        type='string',
-        help='[-1,1] | [0,1]',
-        default='[-1,1]'  },
-    ]]--
-}
+    return param
+end
 
 
 -- basic settings
@@ -100,9 +68,10 @@ local dataloader = torch.class('DataLoader')
 function dataloader:__init(...)
 
     -- argcheck
-    local args = initcheck(...)
+    local args = argchecker(...)
     for k,v in pairs(args) do self[k] = v end          -- push args into self.
     
+
     if not paths.dirp(self.trainPath) then
         error(string.format('Did not find directory: %s', self.trainPath))
     end
@@ -112,7 +81,6 @@ function dataloader:__init(...)
     local cache_prefix = self.trainPath:gsub('/', '_')
     os.execute('mkdir -p cache')
     local trainCache = paths.concat(cache, cache_prefix .. '_trainCache.t7')
-
 
     -- cache
     if paths.filep(trainCache) then 
@@ -158,25 +126,24 @@ end
 function dataloader:trainHook(path)
     local src = self:load_im(path)
     local im = src:clone()
-    im = image.crop(im, 0,0,96,96)
 
     -- add padding if want.
-    if opt.padding then im = prepro.add_padding(im, opt.loadSize) end
+    if self.padding then im = prepro.add_padding(im, self.loadSize) end
 
     -- resize image (always keeping ratio)
-    im = prepro.im_resize(im, opt.loadSize, opt.keep_ratio)
+    im = prepro.im_resize(im, self.loadSize, self.keep_ratio)
 
     -- crop image (random | center).
-    im = prepro.im_crop(im, opt.sampleSize, opt.crop)
+    im = prepro.im_crop(im, self.sampleSize, self.crop)
 
     -- rotation
     -- will be implemented later.
 
     -- hflip
-    if opt.hflip then im = prepro.im_hfilp(im) end
+    if self.hflip then im = prepro.im_hfilp(im) end
 
     -- pixel range
-    im = prepro.adjust_range(im, opt.pixel_range)
+    im = prepro.adjust_range(im, self.pixel_range)
 
     collectgarbage()
     return im

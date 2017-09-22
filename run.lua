@@ -8,9 +8,9 @@ local loader = require 'loader'
 
 local opt = {}
 opt['nthreads'] = 8
-opt['batchSize'] = 40
-opt['loadSize'] = 96
-opt['sampleSize'] = 96
+opt['batchSize'] = 128
+opt['loadSize'] = 80
+opt['sampleSize'] = 64
 opt['trainPath'] = '/home/nashory/data/test'
 
 
