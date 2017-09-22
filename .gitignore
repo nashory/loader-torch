@@ -31,11 +31,13 @@
 .DS_Store*
 Thumbs.db
 *.swp
+*.swo
 *.pyc
 
 # user generaged files.
 repo/
-ttt/
+ref/
+cache/
 
 
 
