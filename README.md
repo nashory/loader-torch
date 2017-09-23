@@ -9,9 +9,14 @@ Multi-threaded data loading module with image preprocessing for torch.
 
 
 ## Benchmark: Single-thread vs. Multi-threads
-|single|multi(8)|
-|---|---|
-|tbd|tbd|
+
+__Test: total elapsed time of loading 10x3x64x64 batch for 100 times.__
+
+|\# of threads|progress|result|
+|---|---|---|
+|1(single)|<img src="https://github.com/nashory/gif/blob/master/_loader/thread_1.gif" width="400">| 17.09 sec.|
+|2(dual) | <img src="https://github.com/nashory/gif/blob/master/_loader/thread_2.gif" width="400">| 10.03 sec.|
+|__8(octa)__ | <img src="https://github.com/nashory/gif/blob/master/_loader/thread_8.gif" width="400">| __8.51 sec.__|
 
 
 ## How to use?
