@@ -18,6 +18,35 @@ __Test: total elapsed time of loading 10x3x64x64 batch for 100 times.__
 |2(dual) | <img src="https://github.com/nashory/gif/blob/master/_loader/thread_2.gif" width="400">| 10.03 sec.|
 |__8(octa)__ | <img src="https://github.com/nashory/gif/blob/master/_loader/thread_8.gif" width="400">| __8.51 sec.__|
 
+## output batch image examples
+
+__1. random cropping__
+
+<img src="https://github.com/nashory/gif/blob/master/_loader/crop/1.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/crop/2.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/crop/3.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/crop/4.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/crop/5.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/crop/6.png" width="128">
+
+__2. random rotation__
+
+<img src="https://github.com/nashory/gif/blob/master/_loader/rotate/1.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/rotate/2.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/rotate/3.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/rotate/4.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/rotate/5.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/rotate/6.png" width="128">
+
+__3. random horizontal flip__
+
+<img src="https://github.com/nashory/gif/blob/master/_loader/hflip/1.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/hflip/2.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/hflip/3.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/hflip/4.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/hflip/5.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/hflip/6.png" width="128">
+
+__4. padding__
+
+<img src="https://github.com/nashory/gif/blob/master/_loader/padding/11.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/padding/12.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/padding/13.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/padding/14.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/padding/15.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/padding/16.png" width="128">
+
+__5. random brightness__
+
+<img src="https://github.com/nashory/gif/blob/master/_loader/brightness/1.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/brightness/2.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/brightness/3.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/brightness/4.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/brightness/5.png" width="128"> <img src="https://github.com/nashory/gif/blob/master/_loader/brightness/6.png" width="128">
+
+__6. add whitenoise__
+
+|std=0|std=0.2|std=0.4|std=0.6|std=0.8|std=1.0|
+|---|---|---|---|---|---|
+|<img src="https://github.com/nashory/gif/blob/master/_loader/noise/0.000000.png" width="128">|<img src="https://github.com/nashory/gif/blob/master/_loader/noise/0.200000.png" width="128">|<img src="https://github.com/nashory/gif/blob/master/_loader/noise/0.400000.png" width="128">|<img src="https://github.com/nashory/gif/blob/master/_loader/noise/0.600000.png" width="128">|<img src="https://github.com/nashory/gif/blob/master/_loader/noise/0.800000.png" width="128">|<img src="https://github.com/nashory/gif/blob/master/_loader/noise/1.000000.png" width="128">|
+
+ 
 
 ## How to use?
 1. Install the package:
