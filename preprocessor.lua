@@ -1,17 +1,4 @@
 -- preprocessing images.
--- todo:
--- shuffle
--- batch 
--- normalize
--- resize
--- padding
--- range
--- crop
--- rotation
--- contrast
--- gridconcat
--- lot of works to do ... sigh
-
 
 require 'math'
 require 'image'
@@ -34,7 +21,7 @@ end
 
 
 function preprocessor.im_crop(im, imsize, crop_option)
-    assert(crop_option=='random', crop_option=='center')
+    assert(crop_option=='random' or crop_option=='center')
     assert(im:size(3)>=imsize or im:size(2)>=imsize, 'error. image size is smaller than crop size.')
     local iW = im:size(3)
     local iH = im:size(2)
@@ -51,6 +38,24 @@ function preprocessor.im_crop(im, imsize, crop_option)
     return out
 end
 
+function preprocessor.add_padding(im, imsize)
+    local iW = im:size(3)
+    local iH = im:size(2)
+    local iC = im:size(1)
+    local pad = nil
+    local out = nil
+    if iW > iH then
+        out = torch.Tensor(iC, iW, iW):zero()
+        pad = math.floor((iW-iH)/2.0)
+        out[{{},{pad+1, iH+pad},{1, iW}}]:copy(im)
+    else
+        out = torch.Tensor(iC, iH, iH):zero()
+        pad = math.floor((iH-iW)/2.0)
+        out[{{},{1,iH},{pad+1, iW+pad}}]:copy(im)
+    end
+    return image.scale(out, imsize, imsize)
+end
+
 
 function preprocessor.im_hflip(im)
     local p = torch.uniform()
@@ -64,6 +69,23 @@ function preprocessor.adjust_range(im, range)
     local out = im:clone()
     if range=='[-1,1]' then return out:mul(2):add(-1)
     else return out end
+end
+
+function preprocessor.im_rotate(im, maxang)
+    local angle = torch.uniform(1e-2, maxang) - maxang/2
+    local radian = angle/180*3.1415926535389
+    local out = image.rotate(im, radian, 'bilinear')
+    return out
+end
+
+function preprocessor.im_add_noise(im, std)
+    local noise = torch.Tensor(im:size()):uniform(-std/2, std/2)
+    return im:add(noise)
+end
+
+function preprocessor.im_brightness(im, std)
+    local noise = torch.Tensor(im:size()):fill(torch.uniform(-std/2, std/2))
+    return im:add(noise)
 end
 
 return preprocessor

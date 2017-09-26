@@ -32,6 +32,9 @@ function argchecker(param)
     param.padding = param.padding or false
     param.keep_ratio = param.keep_ratio or true
     param.pixel_range = param.pixel_range or '[0,1]'
+    param.rotate = param.rotate or 0
+    param.whitenoise = param.whitenoise or 0
+    param.brightness = param.brightness or -1
 
     -- arg type check
     assert(type(param)=='table')
@@ -51,6 +54,9 @@ function argchecker(param)
     assert(param.crop=='center' or param.crop=='random')
     assert(type(param.pixel_range)=='string')
     assert(param.pixel_range=='[0,1]' or param.pixel_range=='[-1,1]')
+    assert(type(param.rotate)=='number')
+    assert(type(param.whitenoise)=='number')
+    assert(type(param.brightness)=='number')
 
     return param
 end
@@ -137,13 +143,22 @@ function dataloader:trainHook(path)
     im = prepro.im_crop(im, self.sampleSize, self.crop)
 
     -- rotation
-    -- will be implemented later.
-
+    if self.rotate ~= 0 then
+        im = prepro.im_rotate(im, tonumber(self.rotate))
+    end
+    
     -- hflip
-    if self.hflip then im = prepro.im_hfilp(im) end
+    if self.hflip then im = prepro.im_hflip(im) end
+
+    -- add whitenoise
+    if self.whitenoise ~= 0 then im = prepro.im_add_noise(im, self.whitenoise) end
+
+    -- add random brightness
+    if self.brightness~=0 then im = prepro.im_brightness(im, self.brightness) end
 
     -- pixel range
     im = prepro.adjust_range(im, self.pixel_range)
+
 
     collectgarbage()
     return im
@@ -359,7 +374,7 @@ function dataloader:create_cache()
     local totalTestSamples = 0
     if self.split >= 1.0 then self.split=1.0 end
     
-    print(string.format('Splitting training and tet sets to a ratio of %f(train) / %f(test)',
+    print(string.format('Splitting train and test sets to a ratio of %.2f(train) / %.2f(test)',
             self.split, 1.0-self.split))
     self.classListTrain = {}
     self.classListTest = {}
