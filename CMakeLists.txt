@@ -8,8 +8,9 @@ IF(LUAROCKS_PREFIX)
 ENDIF()
 FIND_PACKAGE(Torch REQUIRED)
 
+SET(src)
 FILE(GLOB luasrc *.lua)
 SET(luasrc ${luasrc})
-ADD_TORCH_PACKAGE(loader "${luasrc}")
+ADD_TORCH_PACKAGE(loader "${src}" "${luasrc}" "Torch Data Loading Module")
 
 
