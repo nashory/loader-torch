@@ -49,12 +49,12 @@ __6. add whitenoise__
  
 
 ## How to use?
-1. Install the package:
+__1. Install the package:__
 ~~~
-luarocks install --server=http://luarocks.org/manifests/nashory loader
+luarocks install loader
 ~~~
 
-2. set loader options:  
+__2. set loader options:  __
 You can pass data-loading options as format of lua table like below.
 ~~~
 local opt = {}
@@ -66,12 +66,13 @@ opt['trainPath'] = '/home/nashory/data/test'
 ~~~
 
 
-3. create dataloader and get batch:
+__3. create dataloader and get batch:  __
 ~~~
 require 'loader'
 local myloader = loader.new(opt)                 -- declaration
 for i = 1, 100 do
-    local batch = myloader:getSample('train')     -- get batch (batchSize x 3 x sampleSize x sampleSize)
+    local batch = myloader:getBatch('train')     -- get batch (batchSize x 3 x sampleSize x sampleSize)
+	--local sample = myloader:getSample		 -- get single sample image (3 x sampleSize x sampleSize)
 end
 ~~~
 
